@@ -50,9 +50,8 @@ DEVICE_ROOM_MAP = {
 def root():
     return {
         "status": "ok",
-        "message": "Smart Energy backend is running"
+        "message": "Smart Energy backend is running - render v2"
     }
-
 
 def get_recent_readings(minutes: int = 60):
     db = SessionLocal()
