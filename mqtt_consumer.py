@@ -11,10 +11,8 @@ import models
 from config import settings
 from database import SessionLocal
 
-
 last_timestamp_by_stream = {}
 last_seen_by_device = {}
-
 
 def save_security_event(event_type, reason, raw_payload=None, device_id=None, room_id=None):
     db: Session = SessionLocal()
@@ -37,10 +35,8 @@ def save_security_event(event_type, reason, raw_payload=None, device_id=None, ro
     finally:
         db.close()
 
-
 def build_signing_string(reading_data: dict) -> str:
     return f"{reading_data['device_id']}|{reading_data['room_id']}|{reading_data['energy']}|{reading_data['timestamp']}"
-
 
 def generate_expected_signature(reading_data: dict) -> str:
     signing_string = build_signing_string(reading_data)
@@ -49,7 +45,6 @@ def generate_expected_signature(reading_data: dict) -> str:
         signing_string.encode(),
         hashlib.sha256
     ).hexdigest()
-
 
 def is_replay_attack(device_id: str, room_id: str, message_timestamp: str) -> bool:
     current_ts = datetime.fromisoformat(message_timestamp)
@@ -61,15 +56,12 @@ def is_replay_attack(device_id: str, room_id: str, message_timestamp: str) -> bo
 
     return False
 
-
 def update_last_seen_timestamp(device_id: str, room_id: str, message_timestamp: str):
     stream_key = (device_id, room_id)
     last_timestamp_by_stream[stream_key] = datetime.fromisoformat(message_timestamp)
 
-
 def update_device_last_seen(device_id: str):
     last_seen_by_device[device_id] = datetime.now()
-
 
 def validate_reading(reading_data: dict):
     errors = []
@@ -154,7 +146,6 @@ def validate_reading(reading_data: dict):
 
     return True, []
 
-
 def save_reading_to_db(reading_data: dict):
     db: Session = SessionLocal()
     try:
@@ -174,7 +165,6 @@ def save_reading_to_db(reading_data: dict):
         print(f"Failed to save MQTT reading to DB: {e}")
     finally:
         db.close()
-
 
 def on_connect(client, userdata, flags, rc, properties=None):
     print(f"MQTT on_connect rc = {rc}")
@@ -228,16 +218,19 @@ def on_message(client, userdata, msg):
         )
         print(f"Error processing MQTT message: {e}")
 
-
 def start_mqtt_consumer():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
 
+    if getattr(settings, "mqtt_username", None) and getattr(settings, "mqtt_password", None):
+        client.username_pw_set(settings.mqtt_username, settings.mqtt_password)
+
+ 
+    client.tls_set()
     client.connect(settings.mqtt_broker_host, settings.mqtt_broker_port, 60)
     client.loop_start()
     return client
-
 
 if __name__ == "__main__":
     print("Starting MQTT consumer...")

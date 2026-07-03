@@ -29,6 +29,16 @@ class Settings:
         "energy/readings"
     )
 
+    mqtt_username: str = os.getenv(
+        "MQTT_USERNAME",
+        ""
+    )
+
+    mqtt_password: str = os.getenv(
+        "MQTT_PASSWORD",
+        ""
+    )
+
     message_secret: str = os.getenv(
         "MESSAGE_SECRET",
         "super-secret-key"
