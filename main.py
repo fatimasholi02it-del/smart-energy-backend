@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import func, Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 import models
 from config import settings
