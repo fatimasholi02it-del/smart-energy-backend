@@ -1,0 +1,32 @@
+name: Run Simulator
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  run-simulator:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run simulator
+        env:
+          MQTT_BROKER_HOST: ${{ secrets.MQTT_BROKER_HOST }}
+          MQTT_BROKER_PORT: ${{ secrets.MQTT_BROKER_PORT }}
+          MQTT_TOPIC: ${{ secrets.MQTT_TOPIC }}
+          MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+          MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
+          MESSAGE_SECRET: ${{ secrets.MESSAGE_SECRET }}
+        run: python simulator.py
