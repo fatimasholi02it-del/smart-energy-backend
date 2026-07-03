@@ -1,15 +1,113 @@
+import hmac
+import hashlib
+from pydantic import BaseModel
+
 from collections import defaultdict
 from datetime import datetime, timedelta
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func
+from pydantic import BaseModel
+from sqlalchemy import func, Session
 
 import models
+from config import settings
 from database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Smart Energy API")
+
+
+
+
+class IngestReadingRequest(BaseModel):
+    device_id: str
+    room_id: str
+    energy: float
+    timestamp: str
+    signature: str
+
+
+def build_signing_string(payload: dict) -> str:
+    return f"{payload['device_id']}|{payload['room_id']}|{payload['energy']}|{payload['timestamp']}"
+
+
+def generate_expected_signature(payload: dict) -> str:
+    signing_string = build_signing_string(payload)
+    return hmac.new(
+        settings.message_secret.encode(),
+        signing_string.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+
+def validate_http_reading(payload: dict):
+    device_id = payload["device_id"]
+    room_id = payload["room_id"]
+    energy = payload["energy"]
+    timestamp = payload["timestamp"]
+    provided_signature = payload["signature"]
+
+    if device_id not in settings.trusted_devices:
+        raise HTTPException(status_code=400, detail=f"Unknown device_id: {device_id}")
+
+    if room_id not in settings.allowed_rooms:
+        raise HTTPException(status_code=400, detail=f"Unknown room_id: {room_id}")
+
+    try:
+        datetime.fromisoformat(timestamp)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid timestamp format: {timestamp}")
+
+    min_energy, max_energy = settings.allowed_rooms[room_id]
+    if not (min_energy <= energy <= max_energy):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Energy out of allowed range for {room_id}: {energy} not in [{min_energy}, {max_energy}]"
+        )
+
+    expected_signature = generate_expected_signature(payload)
+    if not hmac.compare_digest(provided_signature, expected_signature):
+        raise HTTPException(status_code=401, detail="Invalid message signature")
+
+
+@app.post("/ingest/reading")
+def ingest_reading(
+    reading: IngestReadingRequest,
+    x_api_key: str = Header(default="")
+):
+    if x_api_key != settings.api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    payload = reading.model_dump()
+    validate_http_reading(payload)
+
+    db: Session = SessionLocal()
+    try:
+        parsed_timestamp = datetime.fromisoformat(reading.timestamp)
+
+        db_reading = models.EnergyReading(
+            room_id=reading.room_id,
+            energy=reading.energy,
+            timestamp=parsed_timestamp
+        )
+        db.add(db_reading)
+        db.commit()
+        db.refresh(db_reading)
+
+        return {
+            "status": "ok",
+            "message": "Reading saved successfully",
+            "id": db_reading.id,
+            "room_id": db_reading.room_id,
+            "energy": db_reading.energy,
+            "timestamp": db_reading.timestamp.isoformat()
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 app.add_middleware(
     CORSMiddleware,

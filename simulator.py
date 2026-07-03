@@ -5,16 +5,16 @@ import random
 import os
 from datetime import datetime
 
-import paho.mqtt.client as mqtt
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-BROKER_HOST = os.getenv("MQTT_BROKER_HOST", "localhost")
-BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
-TOPIC = os.getenv("MQTT_TOPIC", "energy/readings")
-MQTT_USERNAME = os.getenv("MQTT_USERNAME")
-MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
+BACKEND_INGEST_URL = os.getenv(
+    "BACKEND_INGEST_URL",
+    "https://smart-energy-backend-tq02.onrender.com/ingest/reading"
+)
+API_KEY = os.getenv("API_KEY", "super-secret-key")
 MESSAGE_SECRET = os.getenv("MESSAGE_SECRET", "super-secret-key")
 
 DEVICES = [
@@ -76,35 +76,35 @@ def generate_payload(device: dict) -> dict:
     return payload
 
 
+def send_payload(payload: dict):
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+    }
+
+    response = requests.post(
+        BACKEND_INGEST_URL,
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=30,
+    )
+
+    print(f"Status code: {response.status_code}")
+    print(f"Response: {response.text}")
+
+
 def main():
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-
-    if MQTT_USERNAME and MQTT_PASSWORD:
-        client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-
-    client.tls_set()
-    client.connect(BROKER_HOST, BROKER_PORT, 60)
-
-    print("Simulator started.")
-    print(f"Broker: {BROKER_HOST}:{BROKER_PORT}")
-    print(f"Publishing to MQTT topic: {TOPIC}")
+    print("HTTP simulator started.")
+    print(f"Target URL: {BACKEND_INGEST_URL}")
     print("-" * 60)
 
     for device in DEVICES:
         payload = generate_payload(device)
-        message = json.dumps(payload)
+        print(f"Generated: {payload}")
+        send_payload(payload)
+        print("-" * 60)
 
-        result = client.publish(TOPIC, message)
-
-        if result.rc == 0:
-            print(f"Generated: {payload}")
-            print(f"Published successfully: {message}")
-        else:
-            print("Failed to publish message.")
-
-    print("-" * 60)
-    client.disconnect()
-    print("Simulator finished successfully.")
+    print("HTTP simulator finished successfully.")
 
 
 if __name__ == "__main__":
