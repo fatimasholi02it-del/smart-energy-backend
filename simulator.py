@@ -92,6 +92,7 @@ def send_payload(payload: dict):
     print(f"Status code: {response.status_code}")
     print(f"Response: {response.text}")
 
+    response.raise_for_status()
 
 def main():
     print("HTTP simulator started.")
