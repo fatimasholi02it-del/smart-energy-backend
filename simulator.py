@@ -82,17 +82,28 @@ def send_payload(payload: dict):
         "x-api-key": API_KEY,
     }
 
-    response = requests.post(
-        BACKEND_INGEST_URL,
-        headers=headers,
-        data=json.dumps(payload),
-        timeout=30,
-    )
+    max_attempts = 3
 
-    print(f"Status code: {response.status_code}")
-    print(f"Response: {response.text}")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.post(
+                BACKEND_INGEST_URL,
+                headers=headers,
+                data=json.dumps(payload),
+                timeout=90,
+            )
 
-    response.raise_for_status()
+            print(f"Attempt {attempt} - Status code: {response.status_code}")
+            print(f"Attempt {attempt} - Response: {response.text}")
+
+            response.raise_for_status()
+            return
+
+        except requests.exceptions.RequestException as e:
+            print(f"Attempt {attempt} failed: {e}")
+
+            if attempt == max_attempts:
+                raise
 
 def main():
     print("HTTP simulator started.")
