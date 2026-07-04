@@ -105,6 +105,7 @@ def send_payload(payload: dict):
             if attempt == max_attempts:
                 raise
 
+
 def main():
     print("HTTP simulator started.")
     print(f"Target URL: {BACKEND_INGEST_URL}")
