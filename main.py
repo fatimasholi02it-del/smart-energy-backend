@@ -9,15 +9,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from weather_service import get_weather_forecast
+from smart_planner import build_smart_plan
 
 import models
 from config import settings
 from database import SessionLocal, engine
 
-models.Base.metadata.create_all(bind=engine)
+from monte_carlo_service import monte_carlo_prediction
+from models import EnergyReading
+
+import random
+
+
+#models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Smart Energy API")
-
 
 
 
@@ -117,6 +124,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+#models.Base.metadata.create_all(bind=engine)
+
+#app.include_router(router)
 
 BUILDING_ROOM_MAP = {
     "building_1": {
@@ -621,3 +632,58 @@ def mobile_energy_trading():
         "rooms": rooms,
         "scenarios": scenarios,
     }
+@app.get("/predict/{room_id}")
+def predict_energy(room_id: str):
+    db = SessionLocal()
+
+    try:
+        rows = (
+            db.query(EnergyReading.energy)
+            .filter(EnergyReading.room_id == room_id)
+            .order_by(EnergyReading.id.desc())
+            .limit(50)
+            .all()
+        )
+
+        values = [r[0] for r in rows]
+
+        result = monte_carlo_prediction(values)
+
+        if not result:
+            return {
+                "room_id": room_id,
+                "message": "No data available"
+            }
+
+        return {
+            "room_id": room_id,
+            "input_points": len(values),
+            "prediction": result
+        }
+
+    finally:
+        db.close()
+
+
+
+@app.get("/weather/forecast")
+def weather_forecast():
+    return get_weather_forecast()
+
+
+@app.get("/smart-planning")
+def smart_planning():
+    return build_smart_plan()
+
+def monte_carlo_simulation(base_value: float, iterations: int = 1000):
+    results = []
+
+    for _ in range(iterations):
+        noise = random.uniform(-0.3, 0.3)
+        results.append(base_value + noise)
+
+    expected = sum(results) / len(results)
+    min_val = min(results)
+    max_val = max(results)
+
+    return expected, min_val, max_val

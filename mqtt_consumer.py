@@ -222,12 +222,7 @@ def start_mqtt_consumer():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
-
-    if getattr(settings, "mqtt_username", None) and getattr(settings, "mqtt_password", None):
-        client.username_pw_set(settings.mqtt_username, settings.mqtt_password)
-
  
-    client.tls_set()
     client.connect(settings.mqtt_broker_host, settings.mqtt_broker_port, 60)
     client.loop_start()
     return client
