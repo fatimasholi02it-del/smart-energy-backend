@@ -10,7 +10,12 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from weather_service import get_weather_forecast
-from smart_planner import build_smart_plan
+from smart_planner import (
+    build_smart_plan,
+    build_room_plans,
+    build_planning_recommendations,
+    build_planning_health,
+)
 
 import models
 from config import settings
@@ -27,6 +32,13 @@ import random
 app = FastAPI(title="Smart Energy API")
 
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class IngestReadingRequest(BaseModel):
     device_id: str
@@ -670,10 +682,24 @@ def predict_energy(room_id: str):
 def weather_forecast():
     return get_weather_forecast()
 
-
 @app.get("/smart-planning")
 def smart_planning():
     return build_smart_plan()
+
+
+@app.get("/smart-planning/rooms")
+def smart_planning_rooms():
+    return build_room_plans()
+
+
+@app.get("/mobile/recommendations-smart")
+def mobile_recommendations_smart():
+    return build_planning_recommendations()
+
+
+@app.get("/smart-planning/health")
+def smart_planning_health():
+    return build_planning_health()
 
 def monte_carlo_simulation(base_value: float, iterations: int = 1000):
     results = []

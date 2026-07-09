@@ -9,7 +9,7 @@ class Settings:
 
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:postgres123@localhost:5432/energy_system"
+        "postgresql://neondb_owner:npg_ej0GhTuDVcg9@ep-royal-queen-ahzglo4t-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
     )
 
     api_key: str = os.getenv(
